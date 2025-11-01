@@ -7,10 +7,15 @@ interface VoiceAssistantProps {
   onCommand: (command: string) => void;
 }
 
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true
-});
+const getOpenAIClient = () => {
+  if (import.meta.env.VITE_OPENAI_API_KEY) {
+    return new OpenAI({
+      apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+      dangerouslyAllowBrowser: true
+    });
+  }
+  return null;
+};
 
 export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
   const [isListening, setIsListening] = useState(false);
@@ -268,7 +273,8 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
         responseText = 'Opening your course planner';
         onCommand('course');
       } else {
-        if (import.meta.env.VITE_OPENAI_API_KEY) {
+        const openai = getOpenAIClient();
+        if (openai) {
           const aiResponse = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [

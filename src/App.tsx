@@ -7,6 +7,10 @@ import { ClassroomPage } from './pages/ClassroomPage';
 import { AccountPage } from './pages/AccountPage';
 import { UnitArrangementPage } from './pages/UnitArrangementPage';
 import { LiftTrackerPage } from './pages/LiftTrackerPage';
+import { TrafficStatusPage } from './pages/TrafficStatusPage';
+import { ParkingPage } from './pages/ParkingPage';
+import { LibrarySeatsPage } from './pages/LibrarySeatsPage';
+import { CanteenSeatsPage } from './pages/CanteenSeatsPage';
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -47,6 +51,10 @@ function App() {
         <Route path="/account" element={<AccountPage />} />
         <Route path="/unit-arrangement" element={<UnitArrangementPage />} />
         <Route path="/lift-tracker" element={<LiftTrackerPage />} />
+        <Route path="/traffic-status" element={<TrafficStatusPage />} />
+        <Route path="/parking" element={<ParkingPage />} />
+        <Route path="/library-seats" element={<LibrarySeatsPage />} />
+        <Route path="/canteen-seats" element={<CanteenSeatsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

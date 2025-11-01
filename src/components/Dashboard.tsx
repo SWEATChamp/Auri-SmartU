@@ -62,34 +62,46 @@ export function Dashboard() {
               </div>
             </button>
 
-            <button className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group">
+            <button
+              onClick={() => navigate('/traffic-status')}
+              className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group"
+            >
               <div className="flex flex-col items-center space-y-4">
-                <div className="w-24 h-24 bg-gradient-to-br from-orange-100 to-red-100 rounded-2xl flex items-center justify-center group-hover:from-orange-200 group-hover:to-red-200 transition-all">
-                  <Car className="text-orange-600" size={48} />
+                <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl flex items-center justify-center group-hover:from-blue-200 group-hover:to-cyan-200 transition-all">
+                  <Car className="text-blue-600" size={48} />
                 </div>
                 <span className="text-xl font-bold text-slate-800">Traffic Status</span>
               </div>
             </button>
 
-            <button className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group">
+            <button
+              onClick={() => navigate('/parking')}
+              className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group"
+            >
               <div className="flex flex-col items-center space-y-4">
-                <div className="w-24 h-24 bg-gradient-to-br from-violet-100 to-purple-100 rounded-2xl flex items-center justify-center group-hover:from-violet-200 group-hover:to-purple-200 transition-all">
-                  <ParkingSquare className="text-violet-600" size={48} />
+                <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center group-hover:from-blue-200 group-hover:to-indigo-200 transition-all">
+                  <ParkingSquare className="text-blue-600" size={48} />
                 </div>
                 <span className="text-xl font-bold text-slate-800">Parking</span>
               </div>
             </button>
 
-            <button className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group">
+            <button
+              onClick={() => navigate('/library-seats')}
+              className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group"
+            >
               <div className="flex flex-col items-center space-y-4">
-                <div className="w-24 h-24 bg-gradient-to-br from-amber-100 to-yellow-100 rounded-2xl flex items-center justify-center group-hover:from-amber-200 group-hover:to-yellow-200 transition-all">
+                <div className="w-24 h-24 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl flex items-center justify-center group-hover:from-amber-200 group-hover:to-orange-200 transition-all">
                   <BookOpen className="text-amber-600" size={48} />
                 </div>
                 <span className="text-xl font-bold text-slate-800">Library Seats</span>
               </div>
             </button>
 
-            <button className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group">
+            <button
+              onClick={() => navigate('/canteen-seats')}
+              className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group"
+            >
               <div className="flex flex-col items-center space-y-4">
                 <div className="w-24 h-24 bg-gradient-to-br from-rose-100 to-pink-100 rounded-2xl flex items-center justify-center group-hover:from-rose-200 group-hover:to-pink-200 transition-all">
                   <Utensils className="text-rose-600" size={48} />

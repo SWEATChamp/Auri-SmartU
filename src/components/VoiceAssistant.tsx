@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Mic, MicOff, Volume2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface VoiceAssistantProps {
   onCommand: (command: string) => void;
@@ -11,41 +12,146 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
   const [response, setResponse] = useState('');
   const [showResponse, setShowResponse] = useState(false);
 
-  const processCommand = (text: string) => {
+  const processCommand = async (text: string) => {
     const lowerText = text.toLowerCase();
 
-    if (lowerText.includes('classroom') || lowerText.includes('empty room')) {
-      setResponse('Showing available classrooms for you');
+    if (lowerText.includes('traffic') || lowerText.includes('home') || lowerText.includes('go')) {
+      const { data: poisData } = await supabase
+        .from('pois')
+        .select('*')
+        .order('is_default', { ascending: false });
+
+      const { data: trafficData } = await supabase
+        .from('poi_traffic')
+        .select('*');
+
+      if (poisData && trafficData && poisData.length > 0) {
+        const traffic = poisData.map((poi) => {
+          const poiTraffic = trafficData.find((t) => t.poi_id === poi.id);
+          return {
+            name: poi.name,
+            time: poiTraffic?.commute_time_minutes || 0,
+            level: poiTraffic?.traffic_level || 'unknown'
+          };
+        }).slice(0, 3);
+
+        const trafficInfo = traffic.map((t) => {
+          const levelText = t.level === 'severe' ? 'severe congestion' :
+                          t.level === 'heavy' ? 'heavy traffic' :
+                          t.level === 'moderate' ? 'moderate traffic' : 'light traffic';
+          return `${t.name}: ${t.time} min (${levelText})`;
+        }).join(', ');
+
+        setResponse(`Current traffic: ${trafficInfo}`);
+      } else {
+        setResponse('Unable to fetch traffic data at the moment');
+      }
+    } else if (lowerText.includes('parking')) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setResponse('Please sign in to check parking availability');
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('university_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profile) {
+        const { data } = await supabase
+          .from('parking_lots')
+          .select('*')
+          .eq('university_id', profile.university_id)
+          .order('available_spaces', { ascending: false })
+          .limit(3);
+
+        if (data && data.length > 0) {
+          const parkingInfo = data.map((p) =>
+            `${p.zone}: ${p.available_spaces}/${p.total_spaces} available`
+          ).join(', ');
+          setResponse(`Parking availability: ${parkingInfo}`);
+        } else {
+          setResponse('No parking data available');
+        }
+      }
+    } else if (lowerText.includes('library') || lowerText.includes('study')) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setResponse('Please sign in to check library seats');
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('university_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profile) {
+        const { data } = await supabase
+          .from('library_seats')
+          .select('*')
+          .eq('university_id', profile.university_id)
+          .order('available_seats', { ascending: false })
+          .limit(3);
+
+        if (data && data.length > 0) {
+          const libraryInfo = data.map((s) => {
+            const charging = s.has_charging_port ? ' with charging' : '';
+            return `Floor ${s.floor} ${s.zone}: ${s.available_seats} seats${charging}`;
+          }).join(', ');
+          setResponse(`Library availability: ${libraryInfo}`);
+        } else {
+          setResponse('No library seat data available');
+        }
+      }
+    } else if (lowerText.includes('food') || lowerText.includes('eat') || lowerText.includes('canteen')) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setResponse('Please sign in to check food stall availability');
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('university_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profile) {
+        const { data } = await supabase
+          .from('food_stalls')
+          .select('*')
+          .eq('university_id', profile.university_id)
+          .order('available_seats', { ascending: false })
+          .limit(3);
+
+        if (data && data.length > 0) {
+          const foodInfo = data.map((f) =>
+            `${f.name}: ${f.available_seats} seats, queue: ${f.queue_length}`
+          ).join(', ');
+          setResponse(`Food stalls: ${foodInfo}`);
+        } else {
+          setResponse('No food stall data available');
+        }
+      }
+    } else if (lowerText.includes('classroom') || lowerText.includes('empty room')) {
+      setResponse('Let me show you available classrooms');
       onCommand('classroom');
     } else if (lowerText.includes('lift') || lowerText.includes('elevator')) {
-      setResponse('Let me find the best lift for you');
+      setResponse('Finding the best lift for you');
       onCommand('lift');
-    } else if (lowerText.includes('traffic') || lowerText.includes('home') || lowerText.includes('go')) {
-      const hasHeavyTraffic = Math.random() > 0.5;
-      if (hasHeavyTraffic) {
-        setResponse("Hell nah, there's a heavy traffic jam right now!");
-      } else {
-        setResponse("Looks good! Traffic is light, safe travels!");
-      }
-      onCommand('traffic');
-    } else if (lowerText.includes('parking')) {
-      setResponse('Checking parking availability across campus');
-      onCommand('parking');
     } else if (lowerText.includes('course') || lowerText.includes('plan')) {
       setResponse('Opening your course planner');
       onCommand('course');
-    } else if (lowerText.includes('library')) {
-      setResponse('Let me check library seat availability');
-      onCommand('library');
-    } else if (lowerText.includes('food') || lowerText.includes('eat')) {
-      setResponse('Showing food stall availability and queue times');
-      onCommand('food');
     } else {
-      setResponse('I can help you with classrooms, lifts, traffic, parking, library, food stalls, and course planning!');
+      setResponse('I can help you check traffic, parking, library seats, food stalls, classrooms, lifts, and course planning!');
     }
 
     setShowResponse(true);
-    setTimeout(() => setShowResponse(false), 5000);
+    setTimeout(() => setShowResponse(false), 8000);
   };
 
   const startListening = () => {
@@ -109,7 +215,7 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
       </button>
 
       {(transcript || showResponse) && (
-        <div className="fixed bottom-24 right-8 bg-white rounded-2xl shadow-2xl p-4 max-w-sm z-50 border border-slate-200">
+        <div className="fixed bottom-24 right-8 bg-white rounded-2xl shadow-2xl p-4 max-w-md z-50 border border-slate-200">
           {transcript && (
             <div className="mb-3">
               <div className="flex items-center space-x-2 mb-2">

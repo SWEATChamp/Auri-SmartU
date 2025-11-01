@@ -294,15 +294,15 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
         responseText = "I can help you with traffic updates, parking availability, library seats, food options, lift queues, classroom availability, and your course schedule. Just ask me anything!";
       }
 
-      else if (matchesPattern(lowerText, ['busy', 'crowded', 'packed', 'full'])) {
+      else if (matchesPattern(lowerText, ['busy', 'crowded', 'packed', 'full', 'which store', 'what store'])) {
         if (matchesPattern(lowerText, ['library', 'study'])) {
           responseText = await handleLibraryQuery(lowerText);
-        } else if (matchesPattern(lowerText, ['canteen', 'food', 'cafeteria'])) {
+        } else if (matchesPattern(lowerText, ['canteen', 'food', 'cafeteria', 'stall', 'store', 'restaurant'])) {
           responseText = await handleFoodQuery(lowerText);
         } else if (matchesPattern(lowerText, ['park', 'parking'])) {
           responseText = await handleParkingQuery(lowerText);
         } else {
-          responseText = "What area are you asking about? Library, parking, or food?";
+          responseText = "What area are you asking about? Library, parking, or food stalls?";
         }
       }
 

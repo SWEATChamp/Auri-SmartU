@@ -11,6 +11,7 @@ import { TrafficStatusPage } from './pages/TrafficStatusPage';
 import { ParkingPage } from './pages/ParkingPage';
 import { LibrarySeatsPage } from './pages/LibrarySeatsPage';
 import { CanteenSeatsPage } from './pages/CanteenSeatsPage';
+import { EmergencyContactsPage } from './pages/EmergencyContactsPage';
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -55,6 +56,7 @@ function App() {
         <Route path="/parking" element={<ParkingPage />} />
         <Route path="/library-seats" element={<LibrarySeatsPage />} />
         <Route path="/canteen-seats" element={<CanteenSeatsPage />} />
+        <Route path="/emergency-contacts" element={<EmergencyContactsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

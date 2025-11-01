@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { UserCircle2, School, ArrowUpDown, Car, ParkingSquare, BookOpen, Utensils, CalendarDays } from 'lucide-react';
+import { UserCircle2, School, ArrowUpDown, Car, ParkingSquare, BookOpen, Utensils, CalendarDays, Phone } from 'lucide-react';
 import { VoiceAssistant } from './VoiceAssistant';
 
 export function Dashboard() {
@@ -119,6 +119,18 @@ export function Dashboard() {
                   <CalendarDays className="text-indigo-600" size={48} />
                 </div>
                 <span className="text-xl font-bold text-slate-800">Adaptive Study Planner</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => navigate('/emergency-contacts')}
+              className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group"
+            >
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-24 h-24 bg-gradient-to-br from-red-100 to-rose-100 rounded-2xl flex items-center justify-center group-hover:from-red-200 group-hover:to-rose-200 transition-all">
+                  <Phone className="text-red-600" size={48} />
+                </div>
+                <span className="text-xl font-bold text-slate-800">Emergency Contacts</span>
               </div>
             </button>
           </div>

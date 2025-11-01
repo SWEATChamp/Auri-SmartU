@@ -50,7 +50,10 @@ export function Dashboard() {
               </div>
             </button>
 
-            <button className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group">
+            <button
+              onClick={() => navigate('/lift-tracker')}
+              className="bg-white rounded-xl shadow-lg p-8 border border-slate-200 hover:shadow-xl hover:scale-105 transition-all group"
+            >
               <div className="flex flex-col items-center space-y-4">
                 <div className="w-24 h-24 bg-gradient-to-br from-teal-100 to-green-100 rounded-2xl flex items-center justify-center group-hover:from-teal-200 group-hover:to-green-200 transition-all">
                   <ArrowUpDown className="text-teal-600" size={48} />

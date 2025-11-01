@@ -6,6 +6,7 @@ import { Dashboard } from './components/Dashboard';
 import { ClassroomPage } from './pages/ClassroomPage';
 import { AccountPage } from './pages/AccountPage';
 import { UnitArrangementPage } from './pages/UnitArrangementPage';
+import { LiftTrackerPage } from './pages/LiftTrackerPage';
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -45,6 +46,7 @@ function App() {
         <Route path="/classrooms" element={<ClassroomPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/unit-arrangement" element={<UnitArrangementPage />} />
+        <Route path="/lift-tracker" element={<LiftTrackerPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

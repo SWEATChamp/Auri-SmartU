@@ -32,15 +32,18 @@ export function TrafficStatusPage() {
   }, []);
 
   const fetchTrafficData = async () => {
-    const { data: poisData } = await supabase
+    const { data: poisData, error: poisError } = await supabase
       .from('pois')
       .select('*')
       .order('is_default', { ascending: false })
       .order('name');
 
-    const { data: trafficData } = await supabase
+    const { data: trafficData, error: trafficError } = await supabase
       .from('poi_traffic')
       .select('*');
+
+    if (poisError) console.error('POIs error:', poisError);
+    if (trafficError) console.error('Traffic error:', trafficError);
 
     if (poisData && trafficData) {
       const combined = poisData.map((poi) => {
@@ -137,6 +140,11 @@ export function TrafficStatusPage() {
           </h2>
 
           <div className="space-y-3">
+            {pois.length === 0 && (
+              <div className="text-center py-8 text-slate-500">
+                <p>No traffic data available</p>
+              </div>
+            )}
             {pois.map((poi) => {
               const badge = poi.traffic ? getTrafficBadge(poi.traffic.traffic_level) : { text: 'No Data', color: 'bg-slate-500' };
               return (

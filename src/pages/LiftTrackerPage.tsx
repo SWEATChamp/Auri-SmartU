@@ -136,7 +136,7 @@ export function LiftTrackerPage() {
 
   const handleSelectDestination = (room: Classroom) => {
     setSelectedDestination(room);
-    setDestination(room.room_number);
+    setDestination('');
     setSearchResults([]);
     updateRecommendations(room, currentFloor);
   };

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { ArrowLeft, Send, Sparkles, Calendar, BookOpen, Globe } from 'lucide-react';
+import { Course, CourseModule, CourseStructure } from '../types';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -10,9 +11,14 @@ interface Message {
 
 interface UserData {
   course: string;
+  courseId: string;
   intake: string;
   electives: string[];
   overseas: boolean;
+}
+
+interface ModuleWithStructure extends CourseModule {
+  structure: CourseStructure;
 }
 
 export function UnitArrangementPage() {
@@ -20,20 +26,28 @@ export function UnitArrangementPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "Hello! I'm your AI course advisor. I'll help you plan your academic journey. Let's start by getting to know your preferences. What course are you enrolled in? (e.g., Bachelor of Computer Science)",
+      content: "Hello! I'm your AI course advisor. I'll help you plan your academic journey. Let's start by getting to know your preferences. What course are you enrolled in?",
     },
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [userData, setUserData] = useState<UserData>({
     course: '',
+    courseId: '',
     intake: '',
     electives: [],
     overseas: false,
   });
   const [courseMap, setCourseMap] = useState<any>(null);
+  const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
+  const [availableModules, setAvailableModules] = useState<ModuleWithStructure[]>([]);
+  const [userUniversityId, setUserUniversityId] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -43,68 +57,114 @@ export function UnitArrangementPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const generateCourseMap = (data: UserData) => {
-    const semesters = [];
-    const allUnits = [
-      { code: 'CS101', name: 'Introduction to Programming', credits: 3, year: 1, semester: 1, type: 'Core' },
-      { code: 'MATH101', name: 'Calculus I', credits: 3, year: 1, semester: 1, type: 'Core' },
-      { code: 'CS102', name: 'Data Structures', credits: 3, year: 1, semester: 2, type: 'Core' },
-      { code: 'MATH102', name: 'Linear Algebra', credits: 3, year: 1, semester: 2, type: 'Core' },
-      { code: 'CS201', name: 'Object-Oriented Programming', credits: 3, year: 2, semester: 1, type: 'Core' },
-      { code: 'CS202', name: 'Database Systems', credits: 3, year: 2, semester: 2, type: 'Core' },
-    ];
-
-    if (data.overseas) {
-      semesters.push({
-        year: 3,
-        semester: 1,
-        name: 'Overseas Exchange Program',
-        units: [
-          { code: 'EXCHANGE', name: 'Study Abroad', credits: 12, type: 'Exchange' },
-        ],
-      });
+  const loadUserData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      navigate('/auth');
+      return;
     }
 
-    const electiveUnits = [
-      { code: 'CS301', name: 'Web Development', credits: 3 },
-      { code: 'CS302', name: 'Mobile App Development', credits: 3 },
-      { code: 'CS303', name: 'Machine Learning', credits: 3 },
-      { code: 'CS304', name: 'Cloud Computing', credits: 3 },
-    ];
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('university_id')
+      .eq('id', user.id)
+      .maybeSingle();
 
-    const selectedElectives = electiveUnits.slice(0, 2);
-
-    for (let i = 0; i < allUnits.length; i += 4) {
-      const year = Math.floor(i / 4) + 1;
-      const sem1Units = allUnits.slice(i, i + 2);
-      const sem2Units = allUnits.slice(i + 2, i + 4);
-
-      if (sem1Units.length > 0) {
-        semesters.push({
-          year,
-          semester: 1,
-          name: `Year ${year} - Semester 1`,
-          units: sem1Units,
-        });
-      }
-
-      if (sem2Units.length > 0) {
-        semesters.push({
-          year,
-          semester: 2,
-          name: `Year ${year} - Semester 2`,
-          units: sem2Units,
-        });
-      }
+    if (profile?.university_id) {
+      setUserUniversityId(profile.university_id);
+      await loadCourses(profile.university_id);
     }
+  };
 
-    if (!data.overseas) {
-      semesters.push({
-        year: 3,
-        semester: 1,
-        name: 'Year 3 - Semester 1',
-        units: selectedElectives.map((u) => ({ ...u, year: 3, semester: 1, type: 'Elective' })),
-      });
+  const loadCourses = async (universityId: string) => {
+    const { data: courses } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('university_id', universityId)
+      .order('name');
+
+    if (courses && courses.length > 0) {
+      setAvailableCourses(courses);
+
+      const courseOptions = courses.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Here are the available programs at your university:\n\n${courseOptions}\n\nPlease enter the number or name of your chosen program.`,
+        },
+      ]);
+      setStep(1);
+    }
+  };
+
+  const loadCourseModules = async (courseId: string) => {
+    const { data: structures } = await supabase
+      .from('course_structure')
+      .select(`
+        *,
+        course_module:course_id (*)
+      `)
+      .eq('degree_program_id', courseId)
+      .order('recommended_year')
+      .order('recommended_semester');
+
+    if (structures) {
+      const modules: ModuleWithStructure[] = structures.map((s: any) => ({
+        ...s.course_module,
+        structure: {
+          id: s.id,
+          degree_program_id: s.degree_program_id,
+          course_id: s.course_id,
+          parent_course_id: s.parent_course_id,
+          is_core: s.is_core,
+          recommended_year: s.recommended_year,
+          recommended_semester: s.recommended_semester,
+          created_at: s.created_at,
+        },
+      }));
+      setAvailableModules(modules);
+    }
+  };
+
+  const generateCourseMap = (data: UserData, modules: ModuleWithStructure[]) => {
+    const semesters: any[] = [];
+    const years = Math.max(...modules.map((m) => m.structure.recommended_year));
+
+    for (let year = 1; year <= years; year++) {
+      for (let sem = 1; sem <= 2; sem++) {
+        if (data.overseas && year === 3 && sem === 1) {
+          semesters.push({
+            year,
+            semester: sem,
+            name: 'Overseas Exchange Program',
+            units: [
+              { code: 'EXCHANGE', name: 'Study Abroad', credits: 12, type: 'Exchange' },
+            ],
+          });
+          continue;
+        }
+
+        const semesterModules = modules.filter(
+          (m) =>
+            m.structure.recommended_year === year &&
+            m.structure.recommended_semester === sem
+        );
+
+        if (semesterModules.length > 0) {
+          semesters.push({
+            year,
+            semester: sem,
+            name: `Year ${year} - Semester ${sem}`,
+            units: semesterModules.map((m) => ({
+              code: m.code,
+              name: m.name,
+              credits: m.credits,
+              type: m.structure.is_core ? 'Core' : 'Elective',
+            })),
+          });
+        }
+      }
     }
 
     return semesters;
@@ -118,32 +178,63 @@ export function UnitArrangementPage() {
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setIsTyping(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       let assistantResponse = '';
       let newStep = step;
 
       if (step === 1) {
-        setUserData((prev) => ({ ...prev, course: userMessage }));
-        assistantResponse = `Great! ${userMessage} is an excellent choice. When is your intake? (e.g., January 2025, September 2024)`;
-        newStep = 2;
+        const courseIndex = parseInt(userMessage) - 1;
+        let selectedCourse: Course | undefined;
+
+        if (!isNaN(courseIndex) && courseIndex >= 0 && courseIndex < availableCourses.length) {
+          selectedCourse = availableCourses[courseIndex];
+        } else {
+          selectedCourse = availableCourses.find((c) =>
+            c.name.toLowerCase().includes(userMessage.toLowerCase())
+          );
+        }
+
+        if (selectedCourse) {
+          setUserData((prev) => ({
+            ...prev,
+            course: selectedCourse!.name,
+            courseId: selectedCourse!.id,
+          }));
+          await loadCourseModules(selectedCourse.id);
+          assistantResponse = `Great! ${selectedCourse.name} is an excellent choice. When is your intake? (e.g., January 2025, September 2024)`;
+          newStep = 2;
+        } else {
+          assistantResponse = 'I could not find that course. Please enter the number or name from the list above.';
+          newStep = 1;
+        }
       } else if (step === 2) {
         setUserData((prev) => ({ ...prev, intake: userMessage }));
-        assistantResponse = `Perfect! Starting in ${userMessage}. What are your preferred elective areas? You can choose from: Web Development, Mobile App Development, Machine Learning, Cloud Computing. Please list your top interests.`;
-        newStep = 3;
+
+        const electives = availableModules.filter((m) => !m.structure.is_core);
+        if (electives.length > 0) {
+          const electiveList = electives.map((e) => `${e.code} - ${e.name}`).join(', ');
+          assistantResponse = `Perfect! Starting in ${userMessage}. Would you like to choose any specific electives? Available electives: ${electiveList}. (You can type "Skip" if you want to use recommended electives)`;
+          newStep = 3;
+        } else {
+          assistantResponse = `Perfect! Starting in ${userMessage}. Are you interested in participating in an overseas exchange program? (Yes/No)`;
+          newStep = 4;
+        }
       } else if (step === 3) {
-        const electives = userMessage.split(',').map((e) => e.trim());
+        const electives = userMessage.toLowerCase() === 'skip'
+          ? []
+          : userMessage.split(',').map((e) => e.trim());
         setUserData((prev) => ({ ...prev, electives }));
-        assistantResponse = `Excellent choices! Are you interested in participating in an overseas exchange program? (Yes/No)`;
+        assistantResponse = `Excellent! Are you interested in participating in an overseas exchange program? (Yes/No)`;
         newStep = 4;
       } else if (step === 4) {
         const overseas = userMessage.toLowerCase().includes('yes');
         const finalData = { ...userData, overseas };
         setUserData(finalData);
 
-        const map = generateCourseMap(finalData);
+        const map = generateCourseMap(finalData, availableModules);
         setCourseMap(map);
 
-        assistantResponse = `Perfect! I have created a personalized course map for you. Based on your preferences:\n\n• Course: ${finalData.course}\n• Intake: ${finalData.intake}\n• Electives: ${finalData.electives.join(', ')}\n• Overseas Program: ${overseas ? 'Yes' : 'No'}\n\nYour course map is displayed below. I have arranged your units considering prerequisites and optimal semester loadings. ${overseas ? 'I have reserved Year 3 Semester 1 for your overseas exchange program.' : 'All electives are scheduled for your final year.'}`;
+        assistantResponse = `Perfect! I have created a personalized course map for you. Based on your preferences:\n\n• Course: ${finalData.course}\n• Intake: ${finalData.intake}\n• Overseas Program: ${overseas ? 'Yes' : 'No'}\n\nYour course map is displayed below. I have arranged your modules considering prerequisites and optimal semester loadings. ${overseas ? 'I have reserved Year 3 Semester 1 for your overseas exchange program.' : ''}`;
         newStep = 5;
       }
 
@@ -177,7 +268,7 @@ export function UnitArrangementPage() {
               <Sparkles size={24} />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">AI Unit Arrangement</h1>
+              <h1 className="text-3xl font-bold">Adaptive Study Planner</h1>
               <p className="text-blue-100 text-sm">Plan your academic journey with AI assistance</p>
             </div>
           </div>
@@ -306,7 +397,7 @@ export function UnitArrangementPage() {
                             ? 'bg-blue-50 border-blue-200'
                             : unit.type === 'Elective'
                             ? 'bg-green-50 border-green-200'
-                            : 'bg-purple-50 border-purple-200'
+                            : 'bg-amber-50 border-amber-200'
                         }`}
                       >
                         <div className="flex justify-between items-start mb-2">
@@ -317,7 +408,7 @@ export function UnitArrangementPage() {
                                 ? 'bg-blue-200 text-blue-800'
                                 : unit.type === 'Elective'
                                 ? 'bg-green-200 text-green-800'
-                                : 'bg-purple-200 text-purple-800'
+                                : 'bg-amber-200 text-amber-800'
                             }`}
                           >
                             {unit.type}

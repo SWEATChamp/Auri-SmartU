@@ -27,40 +27,39 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95;
-      utterance.pitch = 1.1;
+      utterance.rate = 1.0;
+      utterance.pitch = 1.05;
       utterance.volume = 1.0;
       utterance.lang = 'en-US';
 
       const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Samantha"));
+      const preferredVoice = voices.find(v => 
+        v.name.includes("Google US English") || v.name.includes("Samantha")
+      );
       if (preferredVoice) utterance.voice = preferredVoice;
 
-      utterance.text = text.replace(/,/g, ', ').replace(/\./g, '. ');
+      utterance.text = text;
       window.speechSynthesis.speak(utterance);
     }
   };
 
-  const matchesPattern = (text: string, keywords: string[]): boolean => {
-    return keywords.some(word => text.includes(word));
-  };
+  const matchesPattern = (text: string, keywords: string[]) =>
+    keywords.some(word => text.includes(word));
 
+  // === TRAFFIC ===
   const handleTrafficQuery = async (text: string): Promise<string> => {
     const { data: poisData } = await supabase
       .from('pois')
       .select('*')
       .order('is_default', { ascending: false });
 
-    const { data: trafficData } = await supabase
-      .from('poi_traffic')
-      .select('*');
+    const { data: trafficData } = await supabase.from('poi_traffic').select('*');
 
-    if (!poisData || !trafficData || poisData.length === 0) {
-      return 'Unable to fetch traffic data right now';
-    }
+    if (!poisData || !trafficData || poisData.length === 0)
+      return "Hmm, I can’t fetch traffic data right now. Maybe try again soon?";
 
-    const allTraffic = poisData.map((poi) => {
-      const poiTraffic = trafficData.find((t) => t.poi_id === poi.id);
+    const allTraffic = poisData.map(poi => {
+      const poiTraffic = trafficData.find(t => t.poi_id === poi.id);
       return {
         name: poi.name,
         time: poiTraffic?.commute_time_minutes || 0,
@@ -69,46 +68,53 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
     });
 
     if (matchesPattern(text, ['sunway', 'pyramid'])) {
-      const target = allTraffic.find((t) => t.name.toLowerCase().includes('sunway'));
+      const target = allTraffic.find(t =>
+        t.name.toLowerCase().includes('sunway')
+      );
       if (target) {
-        const levelText = target.level === 'severe' ? 'severe congestion' :
-                        target.level === 'heavy' ? 'heavy traffic' :
-                        target.level === 'moderate' ? 'moderate traffic' : 'light traffic';
-        return `${target.name} is ${target.time} minutes away with ${levelText}`;
+        const levelText =
+          target.level === 'severe'
+            ? 'really bad traffic'
+            : target.level === 'heavy'
+            ? 'heavy traffic'
+            : target.level === 'moderate'
+            ? 'moderate traffic'
+            : 'smooth traffic';
+        return `It takes around ${target.time} minutes to reach ${target.name} — ${levelText} right now.`;
       }
     }
 
     if (matchesPattern(text, ['best', 'fastest', 'quick'])) {
-      const sorted = [...allTraffic].sort((a, b) => a.time - b.time);
-      return `${sorted[0].name} is your best option with only ${sorted[0].time} minutes`;
+      const best = [...allTraffic].sort((a, b) => a.time - b.time)[0];
+      return `${best.name} seems to be the quickest route, about ${best.time} minutes away.`;
     }
 
     if (matchesPattern(text, ['worst', 'avoid', 'bad'])) {
-      const sorted = [...allTraffic].sort((a, b) => b.time - a.time);
-      return `Avoid ${sorted[0].name}. It has the worst traffic at ${sorted[0].time} minutes`;
+      const worst = [...allTraffic].sort((a, b) => b.time - a.time)[0];
+      return `You might wanna skip ${worst.name}. It’s packed — around ${worst.time} minutes drive.`;
     }
 
-    const top3 = allTraffic.slice(0, 3);
-    const trafficInfo = top3.map((t) => {
-      const levelText = t.level === 'severe' ? 'severe' :
-                      t.level === 'heavy' ? 'heavy' :
-                      t.level === 'moderate' ? 'moderate' : 'light';
-      return `${t.name}: ${t.time} minutes, ${levelText}`;
-    }).join('. ');
-    return `Current traffic: ${trafficInfo}`;
+    const summary = allTraffic
+      .slice(0, 3)
+      .map(
+        t =>
+          `${t.name}: ${t.time} minutes (${t.level === 'severe' ? 'jammed' : t.level})`
+      )
+      .join('. ');
+    return `Here’s what I found: ${summary}.`;
   };
 
+  // === PARKING ===
   const handleParkingQuery = async (text: string): Promise<string> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return 'Please sign in to check parking availability';
+    if (!user) return 'Please sign in to check parking info.';
 
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('university_id')
       .eq('id', user.id)
       .maybeSingle();
-
-    if (!profile) return 'Unable to fetch your profile';
+    if (!profile) return 'Unable to find your university data.';
 
     const { data } = await supabase
       .from('parking_lots')
@@ -116,33 +122,37 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
       .eq('university_id', profile.university_id)
       .order('available_spaces', { ascending: false });
 
-    if (!data || data.length === 0) return 'No parking data available';
+    if (!data || data.length === 0)
+      return 'No parking info available at the moment.';
 
     if (matchesPattern(text, ['recommend', 'best', 'should'])) {
       const best = data[0];
-      return `I recommend ${best.zone}. It has ${best.available_spaces} out of ${best.total_spaces} spaces available`;
+      return `${best.zone} has the most space — ${best.available_spaces} spots left.`;
     }
 
-    if (matchesPattern(text, ['worst', 'full', 'avoid'])) {
+    if (matchesPattern(text, ['avoid', 'worst', 'full'])) {
       const worst = data[data.length - 1];
-      return `Avoid ${worst.zone}. It only has ${worst.available_spaces} spaces left`;
+      return `Try to avoid ${worst.zone}, only ${worst.available_spaces} spots remaining.`;
     }
 
-    const top3 = data.slice(0, 3);
-    return `Parking: ${top3.map((p) => `${p.zone}: ${p.available_spaces} available`).join('. ')}`;
+    const summary = data
+      .slice(0, 3)
+      .map(p => `${p.zone}: ${p.available_spaces} spaces`)
+      .join('. ');
+    return `Here’s what’s open: ${summary}.`;
   };
 
+  // === LIBRARY ===
   const handleLibraryQuery = async (text: string): Promise<string> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return 'Please sign in to check library seats';
+    if (!user) return 'Please sign in to check library seats.';
 
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('university_id')
       .eq('id', user.id)
       .maybeSingle();
-
-    if (!profile) return 'Unable to fetch your profile';
+    if (!profile) return 'Unable to load your university data.';
 
     const { data } = await supabase
       .from('library_seats')
@@ -150,49 +160,43 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
       .eq('university_id', profile.university_id)
       .order('available_seats', { ascending: false });
 
-    if (!data || data.length === 0) return 'No library seats available';
+    if (!data || data.length === 0)
+      return 'No info available for the library right now.';
 
-    if (matchesPattern(text, ['charging', 'charge', 'power', 'plug'])) {
-      const withCharging = data.filter((s) => s.has_charging_port);
+    if (matchesPattern(text, ['charging', 'plug'])) {
+      const withCharging = data.filter(s => s.has_charging_port);
       if (withCharging.length > 0) {
-        const best = withCharging[0];
-        return `For charging, go to Floor ${best.floor}, ${best.zone}. It has ${best.available_seats} seats with power outlets`;
+        const spot = withCharging[0];
+        return `You can try Floor ${spot.floor}, ${spot.zone}. It has ${spot.available_seats} seats with charging ports.`;
       }
-      return 'Sorry, no seats with charging ports are available right now';
+      return 'No charging seats are open at the moment.';
     }
 
-    if (matchesPattern(text, ['quiet', 'silent', 'peaceful'])) {
-      const silent = data.find((s) => s.zone.toLowerCase().includes('silent') || s.zone.toLowerCase().includes('quiet'));
+    if (matchesPattern(text, ['quiet', 'silent'])) {
+      const silent = data.find(s =>
+        s.zone.toLowerCase().includes('silent') ||
+        s.zone.toLowerCase().includes('quiet')
+      );
       if (silent) {
-        const charging = silent.has_charging_port ? ' with charging' : '';
-        return `The quiet area is on Floor ${silent.floor}, ${silent.zone}. ${silent.available_seats} seats available${charging}`;
+        return `Try Floor ${silent.floor}, ${silent.zone}. ${silent.available_seats} seats available — nice and quiet.`;
       }
     }
 
-    if (matchesPattern(text, ['recommend', 'best', 'should'])) {
-      const best = data[0];
-      const charging = best.has_charging_port ? ' with charging ports' : '';
-      return `I recommend Floor ${best.floor}, ${best.zone}. It has ${best.available_seats} seats available${charging}`;
-    }
-
-    const top3 = data.slice(0, 3);
-    return `Library: ${top3.map((s) => {
-      const charging = s.has_charging_port ? ' with charging' : '';
-      return `Floor ${s.floor} ${s.zone}: ${s.available_seats} seats${charging}`;
-    }).join('. ')}`;
+    const best = data[0];
+    return `I’d suggest Floor ${best.floor}, ${best.zone} — ${best.available_seats} seats open.`;
   };
 
+  // === FOOD ===
   const handleFoodQuery = async (text: string): Promise<string> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return 'Please sign in to check food options';
+    if (!user) return 'Please sign in to check food stall data.';
 
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('university_id')
       .eq('id', user.id)
       .maybeSingle();
-
-    if (!profile) return 'Unable to fetch your profile';
+    if (!profile) return 'Unable to find your university data.';
 
     const { data } = await supabase
       .from('food_stalls')
@@ -200,33 +204,29 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
       .eq('university_id', profile.university_id)
       .order('queue_length', { ascending: true });
 
-    if (!data || data.length === 0) return 'No food stall data available';
+    if (!data || data.length === 0)
+      return 'No food data available right now.';
 
-    if (matchesPattern(text, ['recommend', 'best', 'should', 'quick', 'fast'])) {
+    if (matchesPattern(text, ['recommend', 'best', 'quick'])) {
       const best = data[0];
-      return `I recommend ${best.name}. It has ${best.available_seats} seats and only ${best.queue_length} people in the queue`;
+      return `${best.name} looks good — ${best.available_seats} seats and a short queue of ${best.queue_length}.`;
     }
 
-    if (matchesPattern(text, ['avoid', 'busy', 'crowded', 'worst'])) {
-      const worst = data[data.length - 1];
-      return `Avoid ${worst.name}. It has a long queue of ${worst.queue_length} people`;
-    }
-
-    const top3 = data.slice(0, 3);
-    return `Food options: ${top3.map((f) => `${f.name}: ${f.available_seats} seats, queue of ${f.queue_length}`).join('. ')}`;
+    const worst = data[data.length - 1];
+    return `Avoid ${worst.name}, it’s crowded with ${worst.queue_length} people in line.`;
   };
 
+  // === LIFT ===
   const handleLiftQuery = async (text: string): Promise<string> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return 'Please sign in to check lift status';
+    if (!user) return 'Please sign in to check lift queues.';
 
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('university_id')
       .eq('id', user.id)
       .maybeSingle();
-
-    if (!profile) return 'Unable to fetch your profile';
+    if (!profile) return 'Unable to find your profile info.';
 
     const { data } = await supabase
       .from('lift_queues')
@@ -234,15 +234,11 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
       .eq('university_id', profile.university_id)
       .order('queue_length', { ascending: true });
 
-    if (!data || data.length === 0) return 'No lift queue data available';
+    if (!data || data.length === 0)
+      return 'No lift data available right now.';
 
-    if (matchesPattern(text, ['recommend', 'best', 'should', 'fastest', 'which'])) {
-      const best = data[0];
-      return `Take ${best.lift_name}. It has only ${best.queue_length} people waiting`;
-    }
-
-    const top3 = data.slice(0, 3);
-    return `Lifts: ${top3.map((l) => `${l.lift_name}: ${l.queue_length} waiting`).join('. ')}`;
+    const best = data[0];
+    return `Go for ${best.lift_name}. Only ${best.queue_length} people waiting.`;
   };
 
   const processCommand = async (text: string) => {
@@ -251,26 +247,26 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
 
     try {
       if (matchesPattern(lowerText, ['hi', 'hello', 'hey'])) {
-        responseText = "Hey there! How can I help you today?";
+        responseText = "Hey there 👋! What can I help you with?";
       } else if (matchesPattern(lowerText, ['how are you'])) {
-        responseText = "I'm great — just keeping an eye on the campus for you!";
+        responseText = "Doing great — just keeping an eye on campus for you!";
       } else if (matchesPattern(lowerText, ['thank', 'thanks'])) {
-        responseText = "You're very welcome!";
-      } else if (matchesPattern(lowerText, ['traffic', 'jam', 'road', 'drive', 'commute', 'go home'])) {
+        responseText = "You're welcome! Always happy to help.";
+      } else if (matchesPattern(lowerText, ['traffic', 'jam', 'commute', 'drive', 'go home'])) {
         responseText = await handleTrafficQuery(lowerText);
-      } else if (matchesPattern(lowerText, ['parking', 'car park', 'space', 'where can i park'])) {
+      } else if (matchesPattern(lowerText, ['parking', 'car park', 'space'])) {
         responseText = await handleParkingQuery(lowerText);
-      } else if (matchesPattern(lowerText, ['library', 'study', 'seat', 'study spot'])) {
+      } else if (matchesPattern(lowerText, ['library', 'study', 'seat'])) {
         responseText = await handleLibraryQuery(lowerText);
-      } else if (matchesPattern(lowerText, ['food', 'eat', 'hungry', 'lunch', 'dinner', 'canteen'])) {
+      } else if (matchesPattern(lowerText, ['food', 'eat', 'canteen', 'hungry'])) {
         responseText = await handleFoodQuery(lowerText);
       } else if (matchesPattern(lowerText, ['lift', 'elevator'])) {
         responseText = await handleLiftQuery(lowerText);
-      } else if (matchesPattern(lowerText, ['classroom', 'empty room', 'free room'])) {
-        responseText = 'Let me show you available classrooms';
+      } else if (matchesPattern(lowerText, ['classroom', 'empty room'])) {
+        responseText = 'Sure! Let me show you available classrooms.';
         onCommand('classroom');
-      } else if (matchesPattern(lowerText, ['course', 'plan', 'schedule', 'timetable'])) {
-        responseText = 'Opening your course planner';
+      } else if (matchesPattern(lowerText, ['course', 'plan', 'schedule'])) {
+        responseText = 'Opening your course planner now.';
         onCommand('course');
       } else {
         const openai = getOpenAIClient();
@@ -280,40 +276,38 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
             messages: [
               {
                 role: "system",
-                content: "You are a friendly campus assistant. Respond briefly (1-2 sentences max), sound natural and helpful."
+                content: "You're a friendly, casual campus assistant. Respond naturally and concisely (max 2 sentences)."
               },
               { role: "user", content: text }
             ]
           });
-          responseText = aiResponse.choices[0].message.content || "I'm not sure how to help with that.";
+          responseText = aiResponse.choices[0].message.content || "Hmm, not sure how to respond to that.";
         } else {
-          responseText = 'I can help you with traffic, parking, library seats, food options, lifts, classrooms, and course planning. Just ask me a question!';
+          responseText = "I can help with traffic, parking, lifts, library seats, food stalls, and classrooms!";
         }
       }
     } catch (error) {
       console.error('Error processing command:', error);
-      responseText = 'Sorry, I encountered an error processing that request';
+      responseText = 'Sorry, something went wrong while processing that.';
     }
 
     setResponse(responseText);
     setShowResponse(true);
     speak(responseText);
-    setTimeout(() => setShowResponse(false), 10000);
+    setTimeout(() => setShowResponse(false), 8000);
   };
 
   const startListening = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      const errorText = 'Sorry, voice recognition is not supported in your browser';
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      const errorText = 'Sorry, your browser doesn’t support voice recognition.';
       setResponse(errorText);
       setShowResponse(true);
       speak(errorText);
-      setTimeout(() => setShowResponse(false), 3000);
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = 'en-US';
@@ -334,19 +328,14 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
       setTranscript('');
     };
 
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
+    recognition.onend = () => setIsListening(false);
     recognition.start();
   };
 
   const stopListening = () => {
     setIsListening(false);
     setTranscript('');
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   };
 
   return (
@@ -359,11 +348,7 @@ export function VoiceAssistant({ onCommand }: VoiceAssistantProps) {
             : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700'
         }`}
       >
-        {isListening ? (
-          <MicOff className="text-white" size={28} />
-        ) : (
-          <Mic className="text-white" size={28} />
-        )}
+        {isListening ? <MicOff className="text-white" size={28} /> : <Mic className="text-white" size={28} />}
       </button>
 
       {(transcript || showResponse) && (

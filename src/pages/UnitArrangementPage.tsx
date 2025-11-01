@@ -19,15 +19,10 @@ interface UserData {
 
 export function UnitArrangementPage() {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: "Hello! I'm your AI course advisor. I'll help you plan your academic journey. Let's start by getting to know your preferences. What course are you enrolled in?",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(-1);
   const [userData, setUserData] = useState<UserData>({
     course: '',
     courseId: '',
@@ -82,10 +77,13 @@ export function UnitArrangementPage() {
     if (courses && courses.length > 0) {
       setAvailableCourses(courses);
 
-      if (messages.length === 1) {
+      if (step === -1) {
         const courseOptions = courses.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
-        setMessages((prev) => [
-          ...prev,
+        setMessages([
+          {
+            role: 'assistant',
+            content: "Hello! I'm your AI course advisor. I'll help you plan your academic journey. Let's start by getting to know your preferences.",
+          },
           {
             role: 'assistant',
             content: `Here are the available programs at your university:\n\n${courseOptions}\n\nPlease enter the number or name of your chosen program.`,
